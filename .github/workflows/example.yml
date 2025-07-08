@@ -19,8 +19,13 @@ jobs:
                   script: |
                       const prBody = context.payload.pull_request.body || "";
                       let issue = "";
-                      if (prBody.includes("run the test workflow")) {
-                        issue = "It looks like your PR description has the phrase \"run the test workflow\" in it";
+                      const match = prBody.match(/run the test workflow(?: (\w+))?/i);
+                      if (match) {
+                        if (match[1]) {
+                          issue = `It looks like your PR description has the phrase "run the test workflow ${match[1]}" in it`;
+                        } else {
+                          issue = 'It looks like your PR description has the phrase "run the test workflow" in it';
+                        }
                       }
                       core.setOutput("issue", issue);
             - name: Add guidance comment

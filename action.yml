@@ -46,10 +46,20 @@ runs:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
               body-includes: ${{ steps.guidance-tag.outputs.tag }}
+        # Echo out the comment ID for debugging
+        - name: Debug Comment ID
+          shell: bash
+          run: |
+              # print out all the inputs and comment id if found
+              echo "show-guidance='${{ inputs.show-guidance }}'"
+              echo "guidance-comment='${{ inputs.guidance-comment }}'"
+              echo "resolved-comment='${{ inputs.resolved-comment }}'"
+              echo "comment-id='${{ steps.find-comment.outputs.comment-id }}'"
         # Handle when guidance should be shown
         - name: Send Initial Guidance
-          if: |
-              ${{ inputs.show-guidance == 'true' && inputs.guidance-comment != '' && steps.find-comment.outputs.comment-id == 0 }}
+          if:
+              ${{ inputs.show-guidance == 'true' && inputs.guidance-comment !=
+              '' && steps.find-comment.outputs.comment-id == '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
           with:
               token: ${{ inputs.token }}
@@ -58,38 +68,43 @@ runs:
                   ${{ steps.guidance-tag.outputs.tag }}
                   ${{ inputs.guidance-comment }}
         - name: Update Guidance
-          if: |
-              ${{ inputs.show-guidance == 'true' && inputs.guidance-comment != '' && steps.find-comment.outputs.comment-id != 0 }}
+          if:
+              ${{ steps.find-comment.outputs.comment-id != '' &&
+              inputs.show-guidance == 'true' && inputs.guidance-comment }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
               comment-id: ${{ steps.find-comment.outputs.comment-id }}
+              edit-mode: replace
               body: |
                   ${{ steps.guidance-tag.outputs.tag }}
                   ${{ inputs.guidance-comment }}
         # Handle when guidance is resolved
         - name: Remove Guidance
           # Remove the comment if guidance is not needed and no resolved comment is set but a comment exists
-          if: |
-              ${{ steps.find-comment.outputs.comment-id != 0 && inputs.show-guidance == 'false' && inputs.resolved-comment == '' }}
+          if:
+              ${{ steps.find-comment.outputs.comment-id != '' &&
+              inputs.show-guidance == 'false' && !inputs.resolved-comment }}
           uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
           with:
               github-token: ${{ inputs.token }}
               script: |
-                  github.issues.deleteComment({
+                  github.rest.issues.deleteComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    comment_id: ${{ steps.find-comment.outputs.comment-id }},
+                    comment_id: ${{ steps.find-comment.outputs.comment-id }}
                   })
         - name: Update Resolved Comment
-          if: |
-              ${{ inputs.show-guidance == 'false' && inputs.resolved-comment != '' && steps.find-comment.outputs.comment-id != 0 }}
+          if:
+              ${{ inputs.show-guidance == 'false' && inputs.resolved-comment &&
+              steps.find-comment.outputs.comment-id != '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
               comment-id: ${{ steps.find-comment.outputs.comment-id }}
+              edit-mode: replace
               body: |
                   ${{ steps.guidance-tag.outputs.tag }}
                   ${{ inputs.resolved-comment }}
