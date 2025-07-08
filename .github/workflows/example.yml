@@ -1,0 +1,39 @@
+name: Example
+on:
+    pull_request:
+        # Adding "edited" because I'm checking the text content of the PR description
+        types: [opened, synchronize, reopened, edited]
+jobs:
+    offerHelp:
+        runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
+            contents: read
+        steps:
+            - name: 'Check out code'
+              uses: actions/checkout@v4
+            - name: See if there are problems
+              id: check-for-issues
+              uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+              with:
+                  script: |
+                      const prBody = context.payload.pull_request.body || "";
+                      let issue = "";
+                      if (prBody.includes("run the test workflow")) {
+                        issue = "It looks like your PR description has the phrase \"run the test workflow\" in it";
+                      }
+                      core.setOutput("issue", issue);
+            - name: Add guidance comment
+              #   uses: betatorbust/guidance-comment@v1
+              uses: ./ # using the local version of ^^
+              with:
+                  name: 'example-guidance'
+                  pr-number: ${{github.event.pull_request.number}}
+                  show-guidance:
+                      ${{ steps.check-for-issues.outputs.issue != '' }}
+
+                  guidance-comment: |
+                      Hi! It looks like there might be an issue:
+                      ${{ steps.check-for-issues.outputs.issue }}
+                  resolved-comment: |
+                      Thanks for addressing the issue!

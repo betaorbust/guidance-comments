@@ -1,0 +1,95 @@
+name: 'Guidance Comments'
+description: 'Gives developer guidance in PR comments.'
+branding:
+    icon: 'message-square'
+    color: 'purple'
+
+inputs:
+    name:
+        description: 'The unique identifier for the guidance type.'
+        required: true
+    pr-number:
+        description: 'The pull request number to comment on.'
+        required: true
+    show-guidance:
+        description: 'If the guidance should be shown.'
+        required: true
+    guidance-comment:
+        description:
+            'Comment to show in the Guidance state. If empty or unset will
+            delete existing comment.'
+        required: false
+        default: ''
+    resolved-comment:
+        description:
+            'Comment to show in the Resolved state. If empty or unset will
+            delete existing comment.'
+        required: false
+        default: ''
+    token:
+        description: 'GitHub token for API access. Defaults to GITHUB_TOKEN.'
+        required: false
+        default: ${{ github.token }}
+
+runs:
+    using: 'composite'
+    steps:
+        - name: Build guidance tag
+          id: guidance-tag
+          shell: bash
+          run: |
+              echo "tag=<!-- guidance-comment: ${{ inputs.name }} -->" >> $GITHUB_OUTPUT
+        - name: Find Comment
+          uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e
+          id: find-comment
+          with:
+              token: ${{ inputs.token }}
+              issue-number: ${{ inputs.pr-number }}
+              body-includes: ${{ steps.guidance-tag.outputs.tag }}
+        # Handle when guidance should be shown
+        - name: Send Initial Guidance
+          if: |
+              ${{ inputs.show-guidance == 'true' && inputs.guidance-comment != '' && steps.find-comment.outputs.comment-id == 0 }}
+          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
+          with:
+              token: ${{ inputs.token }}
+              issue-number: ${{ inputs.pr-number }}
+              body: |
+                  ${{ steps.guidance-tag.outputs.tag }}
+                  ${{ inputs.guidance-comment }}
+        - name: Update Guidance
+          if: |
+              ${{ inputs.show-guidance == 'true' && inputs.guidance-comment != '' && steps.find-comment.outputs.comment-id != 0 }}
+          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
+          with:
+              token: ${{ inputs.token }}
+              issue-number: ${{ inputs.pr-number }}
+              comment-id: ${{ steps.find-comment.outputs.comment-id }}
+              body: |
+                  ${{ steps.guidance-tag.outputs.tag }}
+                  ${{ inputs.guidance-comment }}
+        # Handle when guidance is resolved
+        - name: Remove Guidance
+          # Remove the comment if guidance is not needed and no resolved comment is set but a comment exists
+          if: |
+              ${{ steps.find-comment.outputs.comment-id != 0 && inputs.show-guidance == 'false' && inputs.resolved-comment == '' }}
+          uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+          with:
+              github-token: ${{ inputs.token }}
+              script: |
+                  github.issues.deleteComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: ${{ steps.find-comment.outputs.comment-id }},
+                  })
+        - name: Update Resolved Comment
+          if: |
+              ${{ inputs.show-guidance == 'false' && inputs.resolved-comment != '' && steps.find-comment.outputs.comment-id != 0 }}
+          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043
+          with:
+              token: ${{ inputs.token }}
+              issue-number: ${{ inputs.pr-number }}
+              comment-id: ${{ steps.find-comment.outputs.comment-id }}
+              body: |
+                  ${{ steps.guidance-tag.outputs.tag }}
+                  ${{ inputs.resolved-comment }}
