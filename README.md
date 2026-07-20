@@ -13,17 +13,17 @@ it once the input conditions are no longer met.
 The three states are:
 
 -   Initial:
-    -   When `inputs.show-guidance` is `"false"`, and no previous comments are
-        present for this guidance.
+    -   When `inputs.show-guidance` is `"false"`, and no previous guidance is
+        present.
 -   Guidance:
     -   When `inputs.show-guidance` is `"true"`.
-    -   Adds or updates comment with `inputs.guidance-comment`
+    -   Adds or updates guidance with `inputs.guidance-body`
 -   Resolved:
-    -   When `inputs.show-guidance` is `"false"`, and a previous guidance
-        comment exists (showing that guidance was previously needed)
-    -   Adds or updates comment with `inputs.resolved-comment`
+    -   When `inputs.show-guidance` is `"false"`, and previous guidance
+        exists (showing that guidance was previously needed)
+    -   Adds or updates guidance with `inputs.resolved-body`
 
-Under the hood, comment generation and updates are handled by Peter Evans'
+Under the hood, guidance is created and updated using Peter Evans'
 fantastic
 [create-or-update-comment](https://github.com/marketplace/actions/create-or-update-comment)
 and [find-comment](https://github.com/marketplace/actions/find-comment) actions.
@@ -32,11 +32,11 @@ and [find-comment](https://github.com/marketplace/actions/find-comment) actions.
 
 | Input              | Type                  | Required | Default        | Description                                                                                                                                                                                                                              |
 | ------------------ | --------------------- | -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`             | String                | ✓        | N/A            | The unique identifier for the message. <br/> Example `<guidance name>-${{ github.event.pull_request.number }}` <br/> 🚨 **Do not use unvalidated user input as this ends up in the resulting comments.**                                 |
+| `name`             | String                | ✓        | N/A            | The unique identifier for the guidance type. <br/> Example `<guidance name>-${{ github.event.pull_request.number }}` <br/> 🚨 **Do not use unvalidated user input as this ends up in the resulting guidance.**                            |
 | `pr-number`        | String                | ✓        | N/A            | The PR number. <br/> Generally `${{ github.event.pull_request.number }}`                                                                                                                                                                 |
 | `show-guidance`    | `"true"` or `"false"` | ✓        | N/A            | If the guidance should be shown.                                                                                                                                                                                                         |
-| `guidance-comment` | String                |          | `''`           | Comment to show in the Guidance state. <br/> 🚨 **Do not use raw user input as this ends up in the resulting comments and could pose a security risk through malicious links etc.**                                                      |
-| `resolved-comment` | String                |          | `''`           | Comment to show in the Resolved state.<br/> If empty or unset will delete existing comment. </br> 🚨 **Do not use raw user input as this ends up in the resulting comments and could pose a security risk through malicious links etc.** |
+| `guidance-body`    | String                |          | `''`           | Body to show in the Guidance state. <br/> If empty or unset, any existing guidance is removed. <br/> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.** |
+| `resolved-body`    | String                |          | `''`           | Body to show in the Resolved state.<br/> If empty or unset, any existing guidance is removed. </br> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.** |
 | `token`            | String                |          | `GITHUB_TOKEN` | GitHub token for API access.                                                                                                                                                                                                             |
 
 ### Permissions
@@ -47,6 +47,22 @@ The composite action requires the following permissions be set on the
 ```yml
 permissions:
     pull-requests: write
+```
+
+### Concurrency
+
+The action locates its guidance by searching for an existing comment and then
+creating or updating it. If two runs for the same PR overlap, both can find no
+existing guidance and each create one, producing duplicates.
+
+Set a `concurrency` group in the calling workflow so runs for a given PR are
+serialized. Use `cancel-in-progress: false` so each queued run finishes and the
+next one sees its result:
+
+```yml
+concurrency:
+    group: guidance-${{ github.workflow }}-${{ github.event.pull_request.number }}
+    cancel-in-progress: false
 ```
 
 ### Example Usage
@@ -67,16 +83,16 @@ jobs:
               run: |
                   # Simulate checking for issues in the codebase
                   echo "issue=There was a problem" >> $GITHUB_OUTPUT
-            - name: Add guidance comment
-              uses: betatorbust/guidance-comments@v1
+            - name: Add guidance
+              uses: betatorbust/guidance-comments@v2
               with:
                   name: 'example-guidance'
                   pr-number: ${{ github.event.pull_request.number }}
                   show-guidance:
                       ${{ steps.check-for-issues.outputs.issue != '' }}
-                  guidance-comment: |
+                  guidance-body: |
                       Hi! It looks like there might be an issue:
                       ${{ steps.check-for-issues.outputs.issue }}
-                  resolved-comment: |
+                  resolved-body: |
                       Thanks for addressing the issue!
 ```

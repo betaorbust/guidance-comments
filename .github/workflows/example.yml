@@ -3,6 +3,12 @@ on:
     pull_request:
         # Adding "edited" because I'm checking the text content of the PR description
         types: [opened, synchronize, reopened, edited]
+# Serialize runs for a given PR so overlapping events cannot both look for
+# the guidance, find none, and each create a duplicate. cancel-in-progress
+# is false so each queued run completes and the next one sees its result.
+concurrency:
+    group: guidance-${{ github.workflow }}-${{ github.event.pull_request.number }}
+    cancel-in-progress: false
 jobs:
     offerHelp:
         runs-on: ubuntu-latest
@@ -14,7 +20,7 @@ jobs:
               uses: actions/checkout@v4
             - name: See if there are problems
               id: check-for-issues
-              uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+              uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
               with:
                   script: |
                       const prBody = context.payload.pull_request.body || "";
@@ -28,8 +34,8 @@ jobs:
                         }
                       }
                       core.setOutput("issue", issue);
-            - name: Add guidance comment
-              #   uses: betatorbust/guidance-comment@v1
+            - name: Add guidance
+              #   uses: betatorbust/guidance-comments@v2
               uses: ./ # using the local version of ^^
               with:
                   name: 'example-guidance'
@@ -37,8 +43,8 @@ jobs:
                   show-guidance:
                       ${{ steps.check-for-issues.outputs.issue != '' }}
 
-                  guidance-comment: |
+                  guidance-body: |
                       Hi! It looks like there might be an issue:
                       ${{ steps.check-for-issues.outputs.issue }}
-                  resolved-comment: |
+                  resolved-body: |
                       Thanks for addressing the issue!
