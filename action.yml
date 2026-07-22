@@ -32,6 +32,17 @@ inputs:
 runs:
     using: 'composite'
     steps:
+        - name: Validate inputs
+          shell: bash
+          env:
+              SHOW_GUIDANCE: ${{ inputs.show-guidance }}
+          run: |
+              # Fail fast on an unexpected show-guidance value; otherwise every
+              # branch below silently evaluates false and the action does nothing.
+              if [ "$SHOW_GUIDANCE" != 'true' ] && [ "$SHOW_GUIDANCE" != 'false' ]; then
+                  echo "::error::show-guidance must be 'true' or 'false', got '${SHOW_GUIDANCE}'"
+                  exit 1
+              fi
         - name: Build guidance tag
           id: guidance-tag
           shell: bash
@@ -43,7 +54,7 @@ runs:
               # commands or additional step outputs.
               {
                   echo "tag<<GUIDANCE_EOF"
-                  echo "<!-- guidance: ${NAME} -->"
+                  echo "<!-- guidance-comment: ${NAME} -->"
                   echo "GUIDANCE_EOF"
               } >> "$GITHUB_OUTPUT"
         - name: Find Guidance
@@ -117,8 +128,8 @@ runs:
                     comment_id: Number(process.env.COMMENT_ID)
                   })
         - name: Update Resolved Guidance
-          if: ${{ inputs.show-guidance == 'false' && inputs.resolved-body &&
-              steps.find-comment.outputs.comment-id != '' }}
+          if: ${{ inputs.show-guidance == 'false' && inputs.resolved-body != ''
+              && steps.find-comment.outputs.comment-id != '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
           with:
               token: ${{ inputs.token }}

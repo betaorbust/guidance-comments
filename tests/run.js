@@ -28,7 +28,7 @@ const IMAGE =
 	'catthehacker/ubuntu:act-latest@sha256:3220992391c1182a0cfe4c64453511772c54f4c39e960d26a5e327960675982e';
 const PORT = process.env.MOCK_PORT || '8899';
 const API_URL = `http://host.docker.internal:${PORT}`;
-const TAG = '<!-- guidance: test-guidance -->';
+const TAG = '<!-- guidance-comment: test-guidance -->';
 const LOG = join(tmpdir(), `gc-mock-${process.pid}.log`);
 // Set GC_ARCH=linux/amd64 to force emulation if native arch misbehaves.
 const ARCH_FLAG =
@@ -184,5 +184,12 @@ describe('guidance-comments action (real action.yml under act, mocked API)', () 
 	it('does nothing when not shown and none exists', OPTS, async () => {
 		const { got } = await run('0', 'false', '', '');
 		assert.equal(got, '', 'expected no API mutation');
+	});
+
+	it('fails when show-guidance is not true or false', OPTS, async () => {
+		await startMock('0');
+		const res = runAct('maybe', 'body', '');
+		assert.notEqual(res.status, 0, 'expected act to fail');
+		assert.match(actOutput(res), /show-guidance must be/);
 	});
 });

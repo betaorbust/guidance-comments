@@ -24,7 +24,7 @@ import { appendFileSync } from 'node:fs';
 const PORT = Number(process.env.MOCK_PORT || '8899');
 const LOG = process.env.MOCK_LOG;
 const EXISTING = process.env.MOCK_EXISTING === '1';
-const TAG = process.env.MOCK_TAG || '<!-- guidance: test-guidance -->';
+const TAG = process.env.MOCK_TAG || '<!-- guidance-comment: test-guidance -->';
 const EXISTING_ID = 12345;
 
 // GET/POST list endpoint:   /repos/{owner}/{repo}/issues/{n}/comments
