@@ -12,16 +12,16 @@ it once the input conditions are no longer met.
 
 The three states are:
 
--   Initial:
-    -   When `inputs.show-guidance` is `"false"`, and no previous guidance is
-        present.
--   Guidance:
-    -   When `inputs.show-guidance` is `"true"`.
-    -   Adds or updates guidance with `inputs.guidance-body`
--   Resolved:
-    -   When `inputs.show-guidance` is `"false"`, and previous guidance
-        exists (showing that guidance was previously needed)
-    -   Adds or updates guidance with `inputs.resolved-body`
+- Initial:
+    - When `inputs.show-guidance` is `"false"`, and no previous guidance is
+      present.
+- Guidance:
+    - When `inputs.show-guidance` is `"true"`.
+    - Adds or updates guidance with `inputs.guidance-body`
+- Resolved:
+    - When `inputs.show-guidance` is `"false"`, and previous guidance
+      exists (showing that guidance was previously needed)
+    - Adds or updates guidance with `inputs.resolved-body`
 
 Under the hood, guidance is created and updated using Peter Evans'
 fantastic
@@ -30,14 +30,14 @@ and [find-comment](https://github.com/marketplace/actions/find-comment) actions.
 
 ### Action Configuration
 
-| Input              | Type                  | Required | Default        | Description                                                                                                                                                                                                                              |
-| ------------------ | --------------------- | -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`             | String                | ✓        | N/A            | The unique identifier for the guidance type. <br/> Example `<guidance name>-${{ github.event.pull_request.number }}` <br/> 🚨 **Do not use unvalidated user input as this ends up in the resulting guidance.**                            |
-| `pr-number`        | String                | ✓        | N/A            | The PR number. <br/> Generally `${{ github.event.pull_request.number }}`                                                                                                                                                                 |
-| `show-guidance`    | `"true"` or `"false"` | ✓        | N/A            | If the guidance should be shown.                                                                                                                                                                                                         |
-| `guidance-body`    | String                |          | `''`           | Body to show in the Guidance state. <br/> If empty or unset, any existing guidance is removed. <br/> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.** |
-| `resolved-body`    | String                |          | `''`           | Body to show in the Resolved state.<br/> If empty or unset, any existing guidance is removed. </br> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.** |
-| `token`            | String                |          | `GITHUB_TOKEN` | GitHub token for API access.                                                                                                                                                                                                             |
+| Input           | Type                  | Required | Default        | Description                                                                                                                                                                                                                                 |
+| --------------- | --------------------- | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`          | String                | ✓        | N/A            | The unique identifier for the guidance type. <br/> Example `<guidance name>-${{ github.event.pull_request.number }}` <br/> 🚨 **Do not use unvalidated user input as this ends up in the resulting guidance.**                              |
+| `pr-number`     | String                | ✓        | N/A            | The PR number. <br/> Generally `${{ github.event.pull_request.number }}`                                                                                                                                                                    |
+| `show-guidance` | `"true"` or `"false"` | ✓        | N/A            | If the guidance should be shown.                                                                                                                                                                                                            |
+| `guidance-body` | String                |          | `''`           | Body to show in the Guidance state. <br/> If empty or unset, any existing guidance is removed. <br/> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.** |
+| `resolved-body` | String                |          | `''`           | Body to show in the Resolved state.<br/> If empty or unset, any existing guidance is removed. </br> 🚨 **Do not use raw user input as this ends up in the resulting guidance and could pose a security risk through malicious links etc.**  |
+| `token`         | String                |          | `GITHUB_TOKEN` | GitHub token for API access.                                                                                                                                                                                                                |
 
 ### Permissions
 
@@ -88,8 +88,7 @@ jobs:
               with:
                   name: 'example-guidance'
                   pr-number: ${{ github.event.pull_request.number }}
-                  show-guidance:
-                      ${{ steps.check-for-issues.outputs.issue != '' }}
+                  show-guidance: ${{ steps.check-for-issues.outputs.issue != '' }}
                   guidance-body: |
                       Hi! It looks like there might be an issue:
                       ${{ steps.check-for-issues.outputs.issue }}

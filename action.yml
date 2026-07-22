@@ -15,14 +15,12 @@ inputs:
         description: 'If the guidance should be shown.'
         required: true
     guidance-body:
-        description:
-            'Body to show in the Guidance state. If empty or unset, any
+        description: 'Body to show in the Guidance state. If empty or unset, any
             existing guidance is removed.'
         required: false
         default: ''
     resolved-body:
-        description:
-            'Body to show in the Resolved state. If empty or unset, any
+        description: 'Body to show in the Resolved state. If empty or unset, any
             existing guidance is removed.'
         required: false
         default: ''
@@ -76,8 +74,7 @@ runs:
               echo "comment-id='${COMMENT_ID}'"
         # Create guidance when it should be shown and none exists yet.
         - name: Create Guidance
-          if:
-              ${{ inputs.show-guidance == 'true' && inputs.guidance-body !=
+          if: ${{ inputs.show-guidance == 'true' && inputs.guidance-body !=
               '' && steps.find-comment.outputs.comment-id == '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
           with:
@@ -87,8 +84,7 @@ runs:
                   ${{ steps.guidance-tag.outputs.tag }}
                   ${{ inputs.guidance-body }}
         - name: Update Guidance
-          if:
-              ${{ steps.find-comment.outputs.comment-id != '' &&
+          if: ${{ steps.find-comment.outputs.comment-id != '' &&
               inputs.show-guidance == 'true' && inputs.guidance-body != '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
           with:
@@ -103,8 +99,7 @@ runs:
         # would be shown is empty: either guidance is requested with an empty
         # guidance-body, or guidance is resolved with an empty resolved-body.
         - name: Remove Guidance
-          if:
-              ${{ steps.find-comment.outputs.comment-id != '' &&
+          if: ${{ steps.find-comment.outputs.comment-id != '' &&
               ((inputs.show-guidance == 'true' && inputs.guidance-body ==
               '') || (inputs.show-guidance == 'false' &&
               inputs.resolved-body == '')) }}
@@ -122,8 +117,7 @@ runs:
                     comment_id: Number(process.env.COMMENT_ID)
                   })
         - name: Update Resolved Guidance
-          if:
-              ${{ inputs.show-guidance == 'false' && inputs.resolved-body &&
+          if: ${{ inputs.show-guidance == 'false' && inputs.resolved-body &&
               steps.find-comment.outputs.comment-id != '' }}
           uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
           with:
