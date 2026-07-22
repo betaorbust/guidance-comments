@@ -1,0 +1,28 @@
+name: guidance-action-test
+# Invoked only by tests/run.sh via `act`; deliberately not under
+# .github/workflows so it never runs in real CI (it depends on the local
+# mock server and would fail against the real GitHub API).
+on:
+    workflow_dispatch:
+        inputs:
+            show-guidance:
+                required: true
+            guidance-body:
+                required: false
+                default: ''
+            resolved-body:
+                required: false
+                default: ''
+jobs:
+    call:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Run guidance action
+              uses: ./
+              with:
+                  name: test-guidance
+                  pr-number: '1'
+                  show-guidance: ${{ inputs.show-guidance }}
+                  guidance-body: ${{ inputs.guidance-body }}
+                  resolved-body: ${{ inputs.resolved-body }}
+                  token: test-token
