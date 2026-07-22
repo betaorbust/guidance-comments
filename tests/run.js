@@ -7,69 +7,47 @@
 // action made the correct mutating call (POST=create, PATCH=update/resolve,
 // DELETE=remove) or none at all -- with no network and no real PR.
 //
-// Requirements: docker (running), act, and Node. The FIRST run fetches the act
-// runner image and the referenced actions online (one time); subsequent runs
-// are fully offline via --action-offline-mode.
+// Requirements: docker (running), act, and Node. act fetches the runner image
+// and the referenced actions as needed (a brief network check per run).
 //
-// Usage: node tests/run.js   (or ./tests/run.js)
-'use strict';
+// Usage: node --test tests/run.js   (or node tests/run.js)
 
-const { spawn, spawnSync } = require('node:child_process');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const http = require('node:http');
+import { describe, it, afterEach, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve as _resolve, join } from 'node:path';
+import { get } from 'node:http';
 
-const TESTS_DIR = __dirname;
-const REPO_ROOT = path.resolve(TESTS_DIR, '..');
+const TESTS_DIR = import.meta.dirname;
+const REPO_ROOT = _resolve(TESTS_DIR, '..');
 // This looks like a bad choice of image name, but it's the one recommended by act
 // https://nektosact.com/usage/runners.html#runners
-const IMAGE = 'catthehacker/ubuntu:act-latest';
+const IMAGE =
+	'catthehacker/ubuntu:act-latest@sha256:3220992391c1182a0cfe4c64453511772c54f4c39e960d26a5e327960675982e';
 const PORT = process.env.MOCK_PORT || '8899';
 const API_URL = `http://host.docker.internal:${PORT}`;
 const TAG = '<!-- guidance: test-guidance -->';
-const LOG = path.join(os.tmpdir(), `gc-mock-${process.pid}.log`);
+const LOG = join(tmpdir(), `gc-mock-${process.pid}.log`);
 // Set GC_ARCH=linux/amd64 to force emulation if native arch misbehaves.
 const ARCH_FLAG =
 	process.env.GC_ARCH ?
 		['--container-architecture', process.env.GC_ARCH]
 	:	[];
+// act can pull an image / clone actions on the first run, so give each test
+// plenty of time and never hang forever.
+const OPTS = { timeout: 300_000 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// ---- warmup detection: cold cache => allow the one-time online fetch --------
-function cacheWarm() {
-	if (
-		spawnSync('docker', ['image', 'inspect', IMAGE], { stdio: 'ignore' })
-			.status !== 0
-	)
-		return false;
-	try {
-		return (
-			fs.readdirSync(path.join(os.homedir(), '.cache', 'act')).length > 0
-		);
-	} catch {
-		return false;
-	}
-}
-let offlineFlags = ['--action-offline-mode', '--pull=false'];
-if (!cacheWarm()) {
-	console.log(
-		'Cold act cache: the first scenario will fetch the runner image and',
-	);
-	console.log(
-		'actions online (one time). Later scenarios run fully offline.',
-	);
-	offlineFlags = [];
-}
 
 // ---- mock server lifecycle --------------------------------------------------
 let mock = null;
 async function startMock(existing) {
-	fs.writeFileSync(LOG, '');
-	mock = spawn('node', [path.join(TESTS_DIR, 'mock-github.js')], {
+	writeFileSync(LOG, '');
+	mock = spawn(process.execPath, [join(TESTS_DIR, 'mock-github.js')], {
+		// Pass only the vars the mock needs, not the whole environment.
 		env: {
-			...process.env,
 			MOCK_PORT: PORT,
 			MOCK_LOG: LOG,
 			MOCK_EXISTING: existing,
@@ -79,7 +57,7 @@ async function startMock(existing) {
 	});
 	for (let i = 0; i < 50; i++) {
 		const ok = await new Promise((resolve) => {
-			const req = http.get(
+			const req = get(
 				`http://127.0.0.1:${PORT}/repos/x/y/issues/1/comments`,
 				(res) => {
 					res.resume();
@@ -100,14 +78,31 @@ function stopMock() {
 	}
 }
 
+// Remove the mock and its log. Also wired to signals so an interrupted run
+// doesn't orphan the mock process holding the port.
+function cleanup() {
+	stopMock();
+	rmSync(LOG, { force: true });
+}
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.on(signal, () => {
+		cleanup();
+		process.exit(42);
+	});
+}
+
 // ---- run the action once under act ------------------------------------------
 function runAct(show, guidance, resolved) {
 	const args = [
 		'workflow_dispatch',
 		'-W',
-		path.join(TESTS_DIR, 'workflow.yml'),
+		join(TESTS_DIR, 'workflow.yml'),
 		'-C',
 		REPO_ROOT,
+		// Don't mount the host Docker socket into the runner container: the test
+		// needs no docker-in-docker, and mounting it is a container-escape vector.
+		'--container-daemon-socket',
+		'-',
 		'--bind',
 		'-P',
 		`ubuntu-latest=${IMAGE}`,
@@ -116,7 +111,6 @@ function runAct(show, guidance, resolved) {
 		'--env',
 		'GITHUB_REPOSITORY=acme/demo',
 		...ARCH_FLAG,
-		...offlineFlags,
 		'--input',
 		`show-guidance=${show}`,
 		'--input',
@@ -127,11 +121,15 @@ function runAct(show, guidance, resolved) {
 	return spawnSync('act', args, { encoding: 'utf8' });
 }
 
+function actOutput(res) {
+	return (res.stdout || '') + (res.stderr || '') || String(res.error || '');
+}
+
 // Extract the mutating calls and the last mutation body from the mock log.
 function parseLog() {
 	const muts = [];
 	let body = '';
-	for (const line of fs.readFileSync(LOG, 'utf8').split('\n')) {
+	for (const line of readFileSync(LOG, 'utf8').split('\n')) {
 		if (!line.trim()) continue;
 		const r = JSON.parse(line);
 		if (['POST', 'PATCH', 'DELETE'].includes(r.method)) {
@@ -142,105 +140,49 @@ function parseLog() {
 	return { got: muts.join(','), body };
 }
 
-let pass = 0;
-let fail = 0;
-async function scenario(
-	name,
-	existing,
-	want,
-	substr,
-	show,
-	guidance,
-	resolved,
-) {
+// Set the mock's existing-comment state, run the action once under act, and
+// return which mutating call it made. The mock is torn down in afterEach.
+async function run(existing, show, guidance, resolved) {
 	await startMock(existing);
 	const res = runAct(show, guidance, resolved);
-	stopMock();
-	offlineFlags = ['--action-offline-mode', '--pull=false']; // warm after first run
-
-	if (res.status !== 0) {
-		console.log(`FAIL  ${name}  (act failed)`);
-		const out =
-			(res.stdout || '') + (res.stderr || '') || String(res.error || '');
-		console.log(out.replace(/^/gm, '      | '));
-		fail++;
-		return;
-	}
-
-	const { got, body } = parseLog();
-	let ok = got === want;
-	if (substr && !body.includes(substr)) ok = false;
-
-	if (ok) {
-		console.log(`PASS  ${name}  -> ${got || 'no mutation'}`);
-		pass++;
-	} else {
-		console.log(
-			`FAIL  ${name}  expected=[${want || 'none'}] body~='${substr}'  got=[${got || 'none'}] body='${body}'`,
-		);
-		fail++;
-	}
+	assert.equal(res.status, 0, actOutput(res));
+	return parseLog();
 }
 
-async function main() {
-	console.log('Running guidance-comments offline action tests...\n');
-	//                name                       exist  method   body-substring         show     guidance              resolved
-	await scenario(
-		'create guidance',
-		'0',
-		'POST',
-		'Please fix the lint',
-		'true',
-		'Please fix the lint',
-		'',
-	);
-	await scenario(
-		'update guidance',
-		'1',
-		'PATCH',
-		'Updated guidance',
-		'true',
-		'Updated guidance',
-		'',
-	);
-	await scenario(
-		'resolve guidance',
-		'1',
-		'PATCH',
-		'All resolved',
-		'false',
-		'',
-		'All resolved',
-	);
-	await scenario(
-		'remove (empty guidance)',
-		'1',
-		'DELETE',
-		'',
-		'true',
-		'',
-		'',
-	);
-	await scenario(
-		'remove (empty resolved)',
-		'1',
-		'DELETE',
-		'',
-		'false',
-		'',
-		'',
-	);
-	await scenario('initial (nothing to do)', '0', '', '', 'false', '', '');
-	console.log(`\nPassed: ${pass}   Failed: ${fail}`);
-}
+describe('guidance-comments action (real action.yml under act, mocked API)', () => {
+	afterEach(stopMock);
+	after(() => rmSync(LOG, { force: true }));
 
-main()
-	.catch((err) => {
-		console.error(err.message || err);
-		fail++;
-	})
-	.finally(() => {
-		stopMock();
-		fs.rmSync(LOG, { force: true });
-		process.exit(fail === 0 ? 0 : 1);
+	it('creates guidance when shown and none exists', OPTS, async () => {
+		const { got, body } = await run('0', 'true', 'Fix lint', '');
+		assert.equal(got, 'POST');
+		assert.match(body, /Fix lint/);
 	});
+
+	it('updates guidance when one already exists', OPTS, async () => {
+		const { got, body } = await run('1', 'true', 'Updated', '');
+		assert.equal(got, 'PATCH');
+		assert.match(body, /Updated/);
+	});
+
+	it('posts the resolved body when not shown and one exists', OPTS, async () => {
+		const { got, body } = await run('1', 'false', '', 'Done');
+		assert.equal(got, 'PATCH');
+		assert.match(body, /Done/);
+	});
+
+	it('removes guidance when shown but the body is empty', OPTS, async () => {
+		const { got } = await run('1', 'true', '', '');
+		assert.equal(got, 'DELETE');
+	});
+
+	it('removes guidance when the resolved body is empty', OPTS, async () => {
+		const { got } = await run('1', 'false', '', '');
+		assert.equal(got, 'DELETE');
+	});
+
+	it('does nothing when not shown and none exists', OPTS, async () => {
+		const { got } = await run('0', 'false', '', '');
+		assert.equal(got, '', 'expected no API mutation');
+	});
+});

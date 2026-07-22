@@ -7,7 +7,7 @@ API to a local mock server so no network access or real pull request is needed.
 ## Running
 
 ```sh
-./tests/run.js
+node --test tests/run.js
 ```
 
 The script drives the action through each state and asserts the API call it
@@ -39,17 +39,16 @@ list/create/update/delete the action performs is served and recorded locally.
   scenario inputs. It lives here (not in `.github/workflows`) so it never runs in
   real CI, where it would fail against the live API.
 
-## Requirements and first run
+## Requirements
 
 - Docker (running), `act` (`brew install act`), and Node (for the mock server).
-- The **first** run fetches the `act` runner image and the referenced actions
-  online (one time), then caches them under `~/.cache/act`. Subsequent runs are
-  fully offline (`--action-offline-mode`). `run.js` detects a cold cache and does
-  this warmup automatically.
+- `act` fetches the runner image and the referenced actions as needed, caching
+  them under `~/.cache/act`. Runs make a brief network check for updates; the
+  GitHub API itself is always served by the local mock.
 
 On Apple M-series chips, `act` prints an architecture warning. If a run
 misbehaves, force emulation:
 
 ```sh
-GC_ARCH=linux/amd64 ./tests/run.js
+GC_ARCH=linux/amd64 node --test tests/run.js
 ```

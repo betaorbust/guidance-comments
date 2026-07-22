@@ -18,8 +18,8 @@
 // which mutating call (POST/PATCH/DELETE) was made for each scenario.
 'use strict';
 
-const http = require('node:http');
-const fs = require('node:fs');
+import { createServer } from 'node:http';
+import { appendFileSync } from 'node:fs';
 
 const PORT = Number(process.env.MOCK_PORT || '8899');
 const LOG = process.env.MOCK_LOG;
@@ -45,7 +45,7 @@ function existingComment() {
 }
 
 function record(method, path, body) {
-	fs.appendFileSync(LOG, JSON.stringify({ method, path, body }) + '\n');
+	appendFileSync(LOG, JSON.stringify({ method, path, body }) + '\n');
 }
 
 function send(res, status, payload) {
@@ -65,7 +65,7 @@ function parseBody(body) {
 	}
 }
 
-const server = http.createServer((req, res) => {
+const server = createServer((req, res) => {
 	const chunks = [];
 	req.on('data', (c) => chunks.push(c));
 	req.on('end', () => {
