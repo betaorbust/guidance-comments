@@ -77,7 +77,7 @@ jobs:
             pull-requests: write
         steps:
             - name: 'Check out code'
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
             - name: See if there are problems
               id: check-for-issues
               run: |

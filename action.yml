@@ -58,7 +58,7 @@ runs:
                   echo "GUIDANCE_EOF"
               } >> "$GITHUB_OUTPUT"
         - name: Find Guidance
-          uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+          uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
           id: find-comment
           with:
               token: ${{ inputs.token }}
@@ -87,7 +87,7 @@ runs:
         - name: Create Guidance
           if: ${{ inputs.show-guidance == 'true' && inputs.guidance-body !=
               '' && steps.find-comment.outputs.comment-id == '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
@@ -97,7 +97,7 @@ runs:
         - name: Update Guidance
           if: ${{ steps.find-comment.outputs.comment-id != '' &&
               inputs.show-guidance == 'true' && inputs.guidance-body != '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
@@ -114,7 +114,7 @@ runs:
               ((inputs.show-guidance == 'true' && inputs.guidance-body ==
               '') || (inputs.show-guidance == 'false' &&
               inputs.resolved-body == '')) }}
-          uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+          uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
           env:
               COMMENT_ID: ${{ steps.find-comment.outputs.comment-id }}
           with:
@@ -130,7 +130,7 @@ runs:
         - name: Update Resolved Guidance
           if: ${{ inputs.show-guidance == 'false' && inputs.resolved-body != ''
               && steps.find-comment.outputs.comment-id != '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
