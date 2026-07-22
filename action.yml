@@ -87,7 +87,7 @@ runs:
         - name: Create Guidance
           if: ${{ inputs.show-guidance == 'true' && inputs.guidance-body !=
               '' && steps.find-comment.outputs.comment-id == '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
@@ -97,7 +97,7 @@ runs:
         - name: Update Guidance
           if: ${{ steps.find-comment.outputs.comment-id != '' &&
               inputs.show-guidance == 'true' && inputs.guidance-body != '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
@@ -130,7 +130,7 @@ runs:
         - name: Update Resolved Guidance
           if: ${{ inputs.show-guidance == 'false' && inputs.resolved-body != ''
               && steps.find-comment.outputs.comment-id != '' }}
-          uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+          uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
           with:
               token: ${{ inputs.token }}
               issue-number: ${{ inputs.pr-number }}
